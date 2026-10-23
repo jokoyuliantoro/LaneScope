@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaneScope — Circuit Breaker Visibility Console</title>
+<style>
+:root{
+  --bg:#f7f8fb; --surface:#ffffff; --border:#e4e7ee; --border-strong:#d4d9e3;
+  --ink:#1f2430; --ink-2:#4b5363; --muted:#8a91a3; --faint:#aeb4c4;
+  --blue:#3d5bf5; --blue-soft:#eef1fe; --blue-ink:#2f48c9;
+  --green:#22a06b; --green-soft:#e7f6ef;
+  --amber:#e8a020; --amber-soft:#fdf3e0;
+  --orange:#d95f0a; --orange-soft:#fdecd6;
+  --red:#e5484d; --red-soft:#fdebec;
+  --purple:#6c5ce7;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --shadow:0 1px 2px rgba(20,26,40,.05),0 4px 14px rgba(20,26,40,.05);
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13.5px;color:var(--ink);background:var(--bg);overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select{font:inherit}
+
+/* ============ APP FRAME ============ */
+#app{display:grid;grid-template-columns:232px 1fr;height:100vh}
+
+/* sidebar */
+#sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.brand-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#3d5bf5,#6c5ce7);display:grid;place-items:center;color:#fff;flex:none}
+.brand-mark svg{width:17px;height:17px}
+.brand-name{font-weight:700;font-size:15px;letter-spacing:-.2px}
+.brand-sub{font-size:10.5px;color:var(--muted);margin-top:1px}
+.ws-select{margin:4px 12px 14px;border:1px solid var(--border-strong);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;color:var(--ink-2);font-weight:500;cursor:pointer}
+.ws-select .grid-ico{display:grid;grid-template-columns:repeat(3,3px);gap:1.5px}
+.ws-select .grid-ico i{width:3px;height:3px;background:var(--ink-2);border-radius:1px}
+.ws-select .chev{margin-left:auto;color:var(--muted)}
+.side-title{font-size:16px;font-weight:700;padding:2px 16px 10px;letter-spacing:-.2px}
+.ns-chip{margin:0 12px 12px;display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px}
+.ns-avatar{width:30px;height:30px;border-radius:8px;background:var(--blue-soft);color:var(--blue-ink);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.ns-name{font-weight:600;font-size:13px}
+.ns-sub{font-size:10.5px;color:var(--muted)}
+.nav-sec{border-top:1px solid var(--border);padding:10px 0}
+.nav-label{display:flex;align-items:center;gap:9px;padding:8px 16px;font-weight:700;font-size:13.5px;color:var(--ink)}
+.nav-label svg{width:15px;height:15px;color:var(--ink-2)}
+.nav-item{display:flex;align-items:center;width:100%;text-align:left;padding:7px 16px 7px 42px;color:var(--ink-2);font-size:13px;position:relative;border-radius:0}
+.nav-item:hover{background:#f3f5fa}
+.nav-item.active{color:var(--blue);font-weight:600}
+.nav-item.active::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
+.nav-item .count{margin-left:auto;font-size:11px;color:var(--faint)}
+.nav-item .ea{margin-left:auto;font-size:9.5px;font-weight:700;background:#efeafd;color:var(--purple);padding:1px 6px;border-radius:8px}
+.side-foot{margin-top:auto;border-top:1px solid var(--border);padding:10px 16px;font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.side-foot a{color:var(--blue);text-decoration:none;margin-left:auto;cursor:pointer}
+
+/* main column */
+#main{display:flex;flex-direction:column;min-width:0;height:100vh}
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px 0;flex:none}
+.crumbs{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.crumbs a{color:var(--ink-2);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.crumbs .sep{color:var(--faint)}
+.topbar-row{display:flex;align-items:center;margin-top:2px}
+.page-title{font-size:21px;font-weight:700;letter-spacing:-.3px;padding:4px 0 10px}
+.top-actions{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--ink-2)}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2)}
+.icon-btn:hover{background:#f3f5fa}
+.avatar{width:28px;height:28px;border-radius:50%;background:#e8ebf3;display:grid;place-items:center;color:var(--ink-2)}
+.tabs{display:flex;gap:26px}
+.tab{padding:9px 2px 11px;font-weight:600;font-size:14px;color:var(--ink-2);position:relative}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--blue)}
+.tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2.5px;background:var(--blue);border-radius:2px 2px 0 0}
+
+/* toolbar */
+#toolbar{display:flex;align-items:center;gap:10px;padding:14px 24px 0;flex:none}
+.tool-right{margin-left:auto;display:flex;align-items:center;gap:18px;font-size:13px;color:var(--ink-2)}
+.tool-link{display:flex;align-items:center;gap:7px;font-weight:500;cursor:pointer}
+.tool-link:hover{color:var(--ink)}
+.tool-link svg{width:15px;height:15px}
+.refresh-note{color:var(--ink-2)}
+.sim-bar{display:flex;align-items:center;gap:8px}
+.sim-chip{font-size:11px;font-weight:700;letter-spacing:.4px;color:var(--purple);background:#efeafd;border-radius:6px;padding:3px 8px}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:6px 12px;font-weight:600;font-size:12.5px;color:var(--ink-2);transition:background .12s, border-color .12s}
+.btn:hover{background:#f3f5fa}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue-ink)}
+.btn.danger{color:var(--red);border-color:#f3c4c6}
+.btn.danger:hover{background:var(--red-soft)}
+.btn svg{width:13px;height:13px}
+.fault-count{font-size:12px;color:var(--muted)}
+.fault-count b{color:var(--red)}
+
+/* content */
+#content{flex:1;overflow-y:auto;padding:18px 24px 30px;scroll-behavior:smooth}
+.view{display:none}
+.view.active{display:block}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;gap:7px;padding:16px 18px 0;font-size:15px;font-weight:700;letter-spacing:-.2px}
+.card-h .info{color:var(--faint)}
+.card-h .right{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}
+
+/* summary grid */
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:1280px){.grid4{grid-template-columns:repeat(2,1fr)}}
+.donut-wrap{display:grid;place-items:center;padding:14px 0 6px}
+.donut{position:relative;width:148px;height:148px}
+.donut svg{transform:rotate(-90deg)}
+.donut circle{fill:none;stroke-width:15;transition:stroke-dasharray .5s ease,stroke .3s}
+.donut-center{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.donut-num{font-size:30px;font-weight:700;letter-spacing:-1px;line-height:1}
+.donut-cap{font-size:11px;color:var(--muted);margin-top:3px}
+.legend{padding:6px 18px 16px;display:flex;flex-direction:column;gap:7px}
+.legend-row{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2)}
+.legend-row .dot{width:14px;height:14px;border-radius:4px;display:grid;place-items:center;flex:none}
+.legend-row .dot svg{width:9px;height:9px;color:#fff}
+.legend-row .val{margin-left:auto;font-weight:700;color:var(--ink)}
+.kv-list{padding:10px 18px 16px;display:flex;flex-direction:column;gap:9px}
+.kv{display:flex;font-size:12.5px;color:var(--ink-2)}
+.kv b{margin-left:auto;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.big-stat{padding:12px 18px 0}
+.big-stat .n{font-size:30px;font-weight:700;letter-spacing:-1px}
+.big-stat .c{font-size:11.5px;color:var(--muted)}
+
+/* lane switchboard */
+.lanes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+.lane-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px;transition:border-color .2s}
+.lane-card.state-tripped{border-color:#f0b5b7}
+.lane-card.state-open{border-color:#ecd2a2}
+.lane-head{display:flex;align-items:center;gap:10px}
+.lane-name{font-size:15px;font-weight:700}
+.lane-sub{font-size:11px;color:var(--muted)}
+.state-pill{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.5px;padding:3px 9px;border-radius:20px}
+.state-pill.closed{background:var(--green-soft);color:var(--green)}
+.state-pill.open{background:var(--amber-soft);color:#c07f0a}
+.state-pill.tripped{background:var(--red-soft);color:var(--red)}
+.state-pill.half{background:var(--blue-soft);color:var(--blue-ink)}
+/* 5 px track — glow travels strictly left-edge → right-edge */
+.flow-viz{height:5px;margin:14px 0 0;border-radius:3px;background:#dde1ee;position:relative;overflow:hidden;flex:none}
+/* vertical radius >> track height so the gradient fills the full strip as solid colour at the centre */
+.flow-viz .stream{
+  position:absolute;top:0;bottom:0;left:0;width:100%;
+  background:
+    radial-gradient(ellipse 55px 60px at 50% 50%, rgba(80,110,255,1) 0%, rgba(100,140,255,.75) 25%, transparent 55%),
+    radial-gradient(ellipse 130px 60px at 50% 50%, rgba(120,95,255,.45) 0%, transparent 65%);
+  animation:ltr-sweep 2.8s linear infinite;
+  opacity:1;transition:opacity .4s
+}
+.flow-viz.probe .stream{
+  background:
+    radial-gradient(ellipse 40px 60px at 50% 50%, rgba(61,91,245,.9) 0%, rgba(80,140,255,.5) 30%, transparent 55%),
+    radial-gradient(ellipse 90px 60px at 50% 50%, rgba(100,80,245,.3) 0%, transparent 65%);
+  animation-duration:3.6s
+}
+.flow-viz.stopped .stream{opacity:0}
+@keyframes ltr-sweep{
+  0%   {transform:translateX(-100%)}
+  100% {transform:translateX(100%)}
+}
+.flow-status{min-height:22px;margin:6px 0 8px;display:flex;align-items:center}
+.flow-status .flow-msg{font-size:12px;font-weight:700;letter-spacing:.6px;display:none}
+.lane-card.state-open .flow-status .flow-msg,
+.lane-card.state-tripped .flow-status .flow-msg{display:block}
+.lane-card.state-open .flow-status .flow-msg{color:#c07f0a}
+.lane-card.state-tripped .flow-status .flow-msg{color:var(--red)}
+.lane-metrics{display:flex;gap:18px;margin-bottom:14px;margin-top:2px}
+.lm{flex:1}
+.lm .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px}
+.lm .k{font-size:10.5px;color:var(--muted);margin-top:1px}
+.lane-foot{display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:13px}
+.lane-foot .hint{font-size:11px;color:var(--muted)}
+.lane-foot .reset{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--blue);visibility:hidden}
+.lane-foot .reset.show{visibility:visible}
+
+/* breaker switch */
+.breaker{width:46px;height:26px;border-radius:14px;position:relative;flex:none;cursor:pointer;transition:background .25s;border:none}
+.breaker .knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .25s}
+.breaker.closed{background:var(--green)}
+.breaker.closed .knob{left:23px}
+.breaker.open{background:#c7ccd9}
+.breaker.tripped{background:var(--red)}
+.breaker.tripped .knob{left:3px}
+.breaker.half{background:var(--blue)}
+.breaker.half .knob{left:13px;animation:probe 1.2s ease-in-out infinite alternate}
+@keyframes probe{from{left:8px}to{left:18px}}
+.breaker.sm{width:36px;height:20px}
+.breaker.sm .knob{width:14px;height:14px;top:3px}
+.breaker.sm.closed .knob{left:19px}
+.breaker.sm.half .knob{left:11px;animation:probesm 1.2s ease-in-out infinite alternate}
+@keyframes probesm{from{left:7px}to{left:15px}}
+
+/* traffic distribution */
+.dist-card{margin-top:16px}
+.dist-body{padding:14px 18px 18px}
+.dist-bar{display:flex;height:26px;border-radius:7px;overflow:hidden;background:#f1f3f8}
+.dist-seg{display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0;white-space:nowrap;overflow:hidden}
+.dist-legend{display:flex;gap:22px;margin-top:12px;font-size:12px;color:var(--ink-2)}
+.dist-legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:-1px}
+
+/* enterprise matrix */
+.matrix-card{margin-top:16px}
+.matrix{padding:8px 18px 18px;overflow-x:auto}
+table.mx{border-collapse:collapse;width:100%;min-width:760px}
+table.mx th{font-size:11px;color:var(--muted);font-weight:600;text-align:left;padding:9px 10px;border-bottom:1px solid var(--border)}
+table.mx th.lane-col,table.mx td.lane-col{text-align:center;width:130px}
+table.mx td{padding:8px 10px;border-bottom:1px solid #eef0f5;font-size:12.5px;vertical-align:middle}
+table.mx tr:last-child td{border-bottom:none}
+.ent-cell{display:flex;align-items:center;gap:9px;font-weight:600}
+.ent-dot{width:9px;height:9px;border-radius:3px;flex:none}
+.ent-sub{font-size:10.5px;color:var(--muted);font-weight:400}
+.mx-cell{display:inline-flex;align-items:center;gap:7px}
+.mx-state{font-size:9.5px;font-weight:700;letter-spacing:.4px;width:52px;text-align:left}
+.mx-state.closed{color:var(--green)}.mx-state.open{color:#c07f0a}.mx-state.tripped{color:var(--red)}.mx-state.half{color:var(--blue-ink)}
+.health-mini{display:inline-flex;gap:2px;margin-left:6px;vertical-align:1px}
+.health-mini i{width:5px;height:12px;border-radius:2px;background:#e2e5ee}
+.health-mini i.h{background:var(--green)}.health-mini i.d{background:var(--amber)}.health-mini i.c{background:var(--red)}
+
+/* two-col row */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media(max-width:1280px){.row2{grid-template-columns:1fr}}
+
+/* events */
+.events-body{padding:6px 0 8px;max-height:340px;overflow-y:auto}
+.ev{display:flex;gap:11px;padding:9px 18px;border-bottom:1px solid #f0f2f7;font-size:12.5px;align-items:flex-start}
+.ev:last-child{border-bottom:none}
+.ev .ico{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex:none;margin-top:1px}
+.ev .ico svg{width:12px;height:12px}
+.ev.sev-info .ico{background:var(--blue-soft);color:var(--blue-ink)}
+.ev.sev-ok .ico{background:var(--green-soft);color:var(--green)}
+.ev.sev-warn .ico{background:var(--amber-soft);color:#c07f0a}
+.ev.sev-crit .ico{background:var(--red-soft);color:var(--red)}
+.ev .msg{color:var(--ink);line-height:1.45}
+.ev .msg b{font-weight:600}
+.ev .when{margin-left:auto;color:var(--faint);font-size:11px;flex:none;font-variant-numeric:tabular-nums;padding-top:2px}
+.empty-note{padding:26px 18px;text-align:center;color:var(--muted);font-size:12.5px}
+
+/* topology */
+.topo-frame{margin-top:0;display:grid;grid-template-columns:1fr 320px;gap:16px;height:calc(100vh - 232px);min-height:520px}
+.topo-canvas-card{position:relative;overflow:hidden;display:flex;flex-direction:column}
+.topo-tools{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
+.seg button{padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--ink-2);background:var(--surface)}
+.seg button + button{border-left:1px solid var(--border-strong)}
+.seg button.on{background:var(--blue-soft);color:var(--blue-ink)}
+.topo-hint{font-size:11.5px;color:var(--muted);margin-left:auto}
+#topoViewport{flex:1;cursor:grab;background:
+  radial-gradient(circle at 0 0,#fff 0,#fff 100%),
+  var(--surface)}
+#topoViewport:active{cursor:grabbing}
+#topoViewport svg{display:block;width:100%;height:100%}
+.tnode{cursor:pointer}
+.tnode rect{fill:#fff;stroke:#d8dce6;stroke-width:1;rx:5;transition:stroke .15s}
+.tnode text{font-size:8.6px;fill:var(--ink-2);font-family:var(--mono);pointer-events:none}
+.tnode circle{stroke:#fff;stroke-width:1}
+.tnode.h-healthy circle{fill:var(--green)}
+.tnode.h-warn circle{fill:var(--amber)}
+.tnode.h-warn rect{stroke:#e7c98c}
+.tnode.h-serious circle{fill:var(--orange)}
+.tnode.h-serious rect{stroke:#d4824a;fill:#fff9f5}
+.tnode.h-degraded circle{fill:var(--amber)}
+.tnode.h-degraded rect{stroke:#e7c98c}
+.tnode.h-critical circle{fill:var(--red)}
+.tnode.h-critical rect{stroke:#efaeb1;fill:#fff7f7}
+.tnode.h-isolated circle{fill:#aab1c2}
+.tnode.h-isolated rect{stroke-dasharray:3 2}
+.tnode.dim{opacity:.16}
+.tnode.sel rect{stroke:var(--blue);stroke-width:1.6}
+.tedge{fill:none;stroke:#ccd2df;stroke-width:1;opacity:.55;transition:opacity .15s}
+.tedge.dim{opacity:.05}
+.tedge.lit{stroke:var(--blue);stroke-width:1.5;opacity:.95}
+.tedge.warn{stroke:var(--amber);stroke-width:1.2;opacity:.85}
+.tedge.serious{stroke:var(--orange);stroke-width:1.4;opacity:.9}
+.tedge.bad{stroke:var(--red);stroke-width:1.5;opacity:.95;stroke-dasharray:5 4;animation:march .7s linear infinite}
+@keyframes march{to{stroke-dashoffset:-9}}
+.tier-label{font-size:10px;font-weight:700;letter-spacing:1.2px;fill:var(--faint)}
+/* detail panel */
+.detail{display:flex;flex-direction:column;overflow:hidden}
+.detail-h{padding:14px 16px;border-bottom:1px solid var(--border)}
+.detail-h .nm{font-family:var(--mono);font-size:14px;font-weight:700}
+.detail-h .meta{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:8px;align-items:center}
+.detail-body{flex:1;overflow-y:auto;padding:12px 16px}
+.d-sec{margin-bottom:16px}
+.d-sec h4{font-size:10.5px;font-weight:700;letter-spacing:.8px;color:var(--muted);margin-bottom:8px}
+.lane-status-row{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12.5px}
+.lane-status-row .pill{margin-left:auto}
+.pill{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2.5px 8px;border-radius:14px}
+.pill.healthy{background:var(--green-soft);color:var(--green)}
+.pill.warn{background:var(--amber-soft);color:#c07f0a}
+.pill.serious{background:var(--orange-soft);color:var(--orange)}
+.pill.degraded{background:var(--amber-soft);color:#c07f0a}
+.pill.critical{background:var(--red-soft);color:var(--red)}
+.pill.isolated{background:#eef0f5;color:var(--muted)}
+.dep-link{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);cursor:pointer;width:100%;text-align:left}
+.dep-link:hover{background:#f3f5fa}
+.dep-link .st{width:7px;height:7px;border-radius:50%;flex:none}
+.st.healthy{background:var(--green)}.st.warn{background:var(--amber)}.st.serious{background:var(--orange)}.st.degraded{background:var(--amber)}.st.critical{background:var(--red)}.st.isolated{background:#aab1c2}
+.fault-actions{display:flex;flex-direction:column;gap:7px}
+.detail-empty{flex:1;display:grid;place-items:center;color:var(--muted);font-size:12.5px;text-align:center;padding:24px}
+
+/* applications table */
+.apps-tools{display:flex;gap:10px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);border-radius:8px;padding:7px 11px;width:280px;background:var(--surface)}
+.search input{border:none;outline:none;flex:1;font-size:13px;background:transparent}
+.search svg{width:14px;height:14px;color:var(--muted)}
+.sel{border:1px solid var(--border-strong);border-radius:8px;padding:7px 9px;font-size:12.5px;color:var(--ink-2);background:var(--surface);outline:none}
+.apps-meta{margin-left:auto;font-size:12px;color:var(--muted)}
+.apps-scroll{max-height:calc(100vh - 320px);overflow-y:auto}
+table.apps{border-collapse:collapse;width:100%}
+table.apps th{position:sticky;top:0;background:var(--surface);font-size:11px;color:var(--muted);font-weight:600;text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);z-index:2}
+table.apps td{padding:9px 14px;border-bottom:1px solid #f0f2f7;font-size:12.5px}
+table.apps tr{cursor:pointer}
+table.apps tbody tr:hover{background:#f7f9fd}
+table.apps tr.sel-row{background:var(--blue-soft)}
+.app-nm{font-family:var(--mono);font-weight:600;font-size:12px}
+.tier-tag{font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--muted);background:#f1f3f8;padding:2px 7px;border-radius:6px}
+.dep-ct{color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* toast */
+#toasts{position:fixed;right:22px;bottom:22px;display:flex;flex-direction:column;gap:9px;z-index:60;max-width:380px}
+.toast{background:#23283a;color:#fff;border-radius:10px;padding:11px 14px;font-size:12.5px;display:flex;gap:10px;align-items:flex-start;box-shadow:0 8px 26px rgba(15,20,35,.3);animation:tin .25s ease}
+.toast .tic{width:8px;height:8px;border-radius:50%;margin-top:4px;flex:none}
+.toast.ok .tic{background:#3ddc97}.toast.warn .tic{background:#f5b82e}.toast.crit .tic{background:#ff6b70}.toast.info .tic{background:#7d96ff}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.toast.out{opacity:0;transform:translateY(6px);transition:all .3s}
+
+/* perf footer */
+#perf{position:fixed;left:248px;bottom:10px;font-size:10.5px;color:var(--faint);font-family:var(--mono);pointer-events:none;z-index:5}
+
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#d6dae4;border-radius:6px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+@media (prefers-reduced-motion: reduce){
+  .flow-viz .stream,.tedge.bad,.breaker.half .knob{animation:none !important;opacity:.18}
+  .tedge.warn,.tedge.serious{opacity:.5}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13.5h6L10 22l8.5-11.5h-6L13 2z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">LaneScope</div>
+        <div class="brand-sub">Resilience Console</div>
+      </div>
+    </div>
+
+    <div class="ws-select">
+      <span class="grid-ico"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      Select Workspace
+      <span class="chev">▾</span>
+    </div>
+
+    <div class="side-title">Traffic Lane Control</div>
+
+    <div class="ns-chip">
+      <div class="ns-avatar">P</div>
+      <div>
+        <div class="ns-name">prod-resilience</div>
+        <div class="ns-sub">Namespace</div>
+      </div>
+      <span class="chev" style="margin-left:auto;color:var(--muted)">▾</span>
+    </div>
+
+    <div class="nav-sec">
+      <div class="nav-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        Overview
+      </div>
+      <button class="nav-item" data-nav="dashboard">Dashboard</button>
+      <button class="nav-item" data-nav="topology">Dependency Map</button>
+      <button class="nav-item" data-nav="apps">Applications <span class="count" id="navAppCount"></span></button>
+      <button class="nav-item" data-nav="events">Events <span class="count" id="navEvCount"></span></button>
+    </div>
+
+    <div class="nav-sec">
+      <div class="nav-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a4.5 4.5 0 1 0-5.4 5.4L4 17v3h3l5.3-5.3a4.5 4.5 0 0 0 5.4-5.4L14 13l-3-3 3.7-3.7z"/></svg>
+        Manage
+      </div>
+      <button class="nav-item">Traffic Lanes</button>
+      <button class="nav-item">Edge Circuit Breakers</button>
+      <button class="nav-item">Enterprise Circuit Breakers</button>
+      <button class="nav-item">Lane Intents <span class="ea">EA</span></button>
+      <button class="nav-item">Health Policies</button>
+      <button class="nav-item">Wide Service Records</button>
+      <button class="nav-item">Pool Members</button>
+      <button class="nav-item">Alerts Management</button>
+      <button class="nav-item">Automation Hooks</button>
+      <button class="nav-item">Reports</button>
+      <button class="nav-item">Audit Log</button>
+    </div>
+
+    <div class="side-foot">
+      <span>Advanced nav options visible ⓘ</span><a>Hide</a>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div id="main">
+    <div id="topbar">
+      <div class="crumbs">
+        <a>Home</a><span class="sep">›</span>
+        <a>Traffic Lane Control</a><span class="sep">›</span>
+        <a>prod-resilience</a><span class="sep">›</span>
+        <span id="crumbLeaf">Overview</span>
+      </div>
+      <div class="topbar-row">
+        <div class="page-title" id="pageTitle">Resilience Dashboard</div>
+        <div class="top-actions">
+          <button class="icon-btn" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
+          <button class="icon-btn" title="Help"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+          <div class="avatar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-nav="dashboard">Dashboard</button>
+        <button class="tab" data-nav="topology">Dependency Map</button>
+        <button class="tab" data-nav="apps">Applications</button>
+        <button class="tab" data-nav="events">Events</button>
+      </div>
+    </div>
+
+    <div id="toolbar">
+      <div class="sim-bar">
+        <span class="sim-chip">SIMULATION</span>
+        <button class="btn" id="btnRandomFault">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 2L4.5 13.5h6L10 22l8.5-11.5h-6L13 2z"/></svg>
+          Inject random fault
+        </button>
+        <button class="btn" id="btnCascade">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          Shared-dependency cascade
+        </button>
+        <button class="btn danger" id="btnClear">Clear all faults</button>
+        <span class="fault-count" id="faultCount"></span>
+      </div>
+      <div class="tool-right">
+        <span class="tool-link" id="btnExport">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          Export PDF
+        </span>
+        <span class="tool-link">All Traffic Lanes ▾</span>
+        <span class="tool-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Last 5 minutes ▾
+        </span>
+        <span class="tool-link" id="btnRefresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+          <span class="refresh-note" id="refreshNote">Refresh: Updated just now</span>
+        </span>
+      </div>
+    </div>
+
+    <div id="content">
+
+      <!-- ============ DASHBOARD ============ -->
+      <section class="view active" id="view-dashboard">
+        <div class="grid4">
+          <div class="card">
+            <div class="card-h">Lane Health <span class="info">ⓘ</span></div>
+            <div class="donut-wrap"><div class="donut" id="donutLanes"></div></div>
+            <div class="legend" id="legendLanes"></div>
+          </div>
+          <div class="card">
+            <div class="card-h">Circuit Breakers <span class="info">ⓘ</span></div>
+            <div class="donut-wrap"><div class="donut" id="donutBreakers"></div></div>
+            <div class="legend" id="legendBreakers"></div>
+          </div>
+          <div class="card">
+            <div class="card-h">Application Instances <span class="info">ⓘ</span></div>
+            <div class="donut-wrap"><div class="donut" id="donutApps"></div></div>
+            <div class="legend" id="legendApps"></div>
+          </div>
+          <div class="card">
+            <div class="card-h">Active Configuration <span class="info">ⓘ</span></div>
+            <div class="big-stat"><div class="n" id="cfgApps">—</div><div class="c">Applications under lane control</div></div>
+            <div class="kv-list" id="cfgList"></div>
+          </div>
+        </div>
+
+        <!-- lane switchboard -->
+        <div class="lanes-grid" id="laneCards"></div>
+
+        <!-- traffic distribution -->
+        <div class="card dist-card">
+          <div class="card-h">Traffic Distribution Across Lanes <span class="info">ⓘ</span><span class="right" id="distTotal"></span></div>
+          <div class="dist-body">
+            <div class="dist-bar" id="distBar"></div>
+            <div class="dist-legend" id="distLegend"></div>
+          </div>
+        </div>
+
+        <!-- enterprise breaker matrix + events -->
+        <div class="card matrix-card">
+          <div class="card-h">Enterprise Circuit Breakers <span class="info">ⓘ</span><span class="right">Per enterprise · per lane — toggle to isolate an enterprise from a lane</span></div>
+          <div class="matrix"><table class="mx" id="entMatrix"></table></div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="card-h">Recent Events <span class="info">ⓘ</span><span class="right"><a style="color:var(--blue);cursor:pointer" data-nav="events" class="goto-events">View all</a></span></div>
+          <div class="events-body" id="eventsPreview"></div>
+        </div>
+      </section>
+
+      <!-- ============ TOPOLOGY ============ -->
+      <section class="view" id="view-topology">
+        <div class="topo-frame">
+          <div class="card topo-canvas-card">
+            <div class="topo-tools">
+              <span style="font-size:12.5px;color:var(--ink-2);font-weight:600">Viewing health in</span>
+              <div class="seg" id="laneSeg"></div>
+              <span style="font-size:12px;color:var(--muted)" id="topoStats"></span>
+              <span class="topo-hint">Scroll to zoom · drag to pan · hover to trace dependencies · click for details</span>
+            </div>
+            <div id="topoViewport"></div>
+          </div>
+          <div class="card detail" id="detailPanel">
+            <div class="detail-empty">Select an application node to inspect its dependencies, per-lane health, and fault controls.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ APPLICATIONS ============ -->
+      <section class="view" id="view-apps">
+        <div class="card">
+          <div class="apps-tools">
+            <div class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="appSearch" placeholder="Search applications…">
+            </div>
+            <select class="sel" id="fEnt"><option value="">All enterprises</option></select>
+            <select class="sel" id="fTier"><option value="">All tiers</option></select>
+            <select class="sel" id="fStatus">
+              <option value="">All statuses</option>
+              <option value="critical">Has critical</option>
+              <option value="degraded">Has degraded</option>
+              <option value="healthy">Fully healthy</option>
+            </select>
+            <span class="apps-meta" id="appsMeta"></span>
+          </div>
+          <div class="apps-scroll">
+            <table class="apps">
+              <thead><tr>
+                <th style="width:24%">Application</th>
+                <th style="width:15%">Enterprise</th>
+                <th style="width:10%">Tier</th>
+                <th style="width:9%">Depends on</th>
+                <th>Lane 1</th><th>Lane 2</th><th>Lane 3</th>
+              </tr></thead>
+              <tbody id="appsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ EVENTS ============ -->
+      <section class="view" id="view-events">
+        <div class="card">
+          <div class="card-h">Event Stream <span class="info">ⓘ</span><span class="right" id="evMeta"></span></div>
+          <div class="events-body" style="max-height:calc(100vh - 280px)" id="eventsFull"></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<div id="perf"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   LaneScope — generic traffic-lane circuit breaker visibility console
+   Model: 3 replicated traffic lanes. An Edge Circuit Breaker per lane
+   admits traffic into the lane; an Enterprise Circuit Breaker per
+   (enterprise × lane) shields each application group's reachability.
+   Breaker states: SERVING (traffic flowing) · ISOLATED (operator intent) ·
+   TRIPPED (auto, health) · PROBING (canary recovery in progress).
+   ===================================================================== */
+
+/* ---------------- data generation ---------------- */
+const LANES=[1,2,3];
+const TIERS=["edge","gateway","service","core","data"];
+const TIER_LABEL={edge:"EDGE",gateway:"GATEWAY",service:"SERVICE",core:"CORE",data:"DATA"};
+const ENTS=[
+  {id:"helix",  name:"Helix",   sub:"Shared platform services", color:"#6c5ce7"},
+  {id:"atlas",  name:"Atlas",   sub:"Customer experience",      color:"#3d5bf5"},
+  {id:"borealis",name:"Borealis",sub:"Partner integration",     color:"#0ea5b7"},
+  {id:"cobalt", name:"Cobalt",  sub:"Operations & fulfilment",  color:"#22a06b"},
+  {id:"drift",  name:"Drift",   sub:"Messaging & engagement",   color:"#e8842c"},
+  {id:"ember",  name:"Ember",   sub:"Analytics & reporting",    color:"#d6457e"},
+  {id:"flux",   name:"Flux",    sub:"Workflow automation",      color:"#7a8b1f"},
+  {id:"granite",name:"Granite", sub:"Records & archival",       color:"#5b6678"},
+];
+const ROLES={
+  edge:["portal","ingress"],
+  gateway:["api-gw","router"],
+  service:["session","profile","catalog","search","notify"],
+  core:["workflow","policy","stream"],
+  data:["store","cache","queue"],
+};
+
+// deterministic PRNG so the mock-up is stable between reloads
+let _s=42;function rnd(){_s=(_s*1103515245+12345)&0x7fffffff;return _s/0x7fffffff}
+function pick(a){return a[Math.floor(rnd()*a.length)]}
+
+const apps=[]; const appById={};
+let seq=1;
+for(const ent of ENTS){
+  for(const tier of TIERS){
+    for(const role of ROLES[tier]){
+      const id="a"+(seq++);
+      const name=`${ent.id}-${role}-${String(seq%97).padStart(2,"0")}`;
+      const app={id,name,ent:ent.id,tier,deps:[],dependents:[],version:`v${1+Math.floor(rnd()*4)}.${Math.floor(rnd()*12)}.${Math.floor(rnd()*9)}`};
+      apps.push(app);appById[id]=app;
+    }
+  }
+}
+// dependency wiring: each tier depends on the next tier down (toward data),
+// mostly within its enterprise, with cross-enterprise links into Helix
+// (shared platform) and occasional peer links — a realistic mesh.
+const byEntTier={};
+for(const a of apps){(byEntTier[a.ent+"/"+a.tier]??=[]).push(a)}
+const helixCore=byEntTier["helix/core"], helixData=byEntTier["helix/data"], helixSvc=byEntTier["helix/service"];
+function link(a,b){if(a===b||a.deps.includes(b.id))return;a.deps.push(b.id);b.dependents.push(a.id)}
+const NEXT={edge:"gateway",gateway:"service",service:"core",core:"data"};
+for(const a of apps){
+  const nt=NEXT[a.tier]; if(!nt)continue;
+  const own=byEntTier[a.ent+"/"+nt];
+  // 1–3 same-enterprise links downward
+  const n=1+Math.floor(rnd()* (nt==="service"?3:2));
+  for(let i=0;i<n;i++)link(a,pick(own));
+  // cross-enterprise dependence on shared Helix platform
+  if(a.ent!=="helix"){
+    if(a.tier==="service"&&rnd()<0.65)link(a,pick(helixCore));
+    if(a.tier==="core"&&rnd()<0.5)link(a,pick(helixData));
+    if(a.tier==="gateway"&&rnd()<0.3)link(a,pick(helixSvc));
+  }
+  // occasional peer-enterprise link at service tier
+  if(a.tier==="service"&&rnd()<0.18){
+    const other=pick(ENTS.filter(e=>e.id!==a.ent&&e.id!=="helix"));
+    link(a,pick(byEntTier[other.id+"/core"]));
+  }
+}
+const DEP_COUNT=apps.reduce((s,a)=>s+a.deps.length,0);
+// topological compute order: data → core → service → gateway → edge
+const computeOrder=[...apps].sort((x,y)=>TIERS.indexOf(y.tier)-TIERS.indexOf(x.tier));
+
+/* ---------------- runtime state ---------------- */
+// breaker: {st:'closed'|'open'|'tripped'|'half', manual:bool}
+const state={
+  edge:{1:{st:"closed"},2:{st:"closed"},3:{st:"closed"}},
+  ent:{},                       // key `${entId}:${lane}`
+  faults:new Set(),             // `${appId}:${lane}`
+  baseRps:{1:4210,2:4080,3:3950},
+};
+for(const e of ENTS)for(const l of LANES)state.ent[e.id+":"+l]={st:"closed"};
+
+const events=[];
+let evSeq=0;
+function logEvent(sev,msg){
+  events.unshift({id:++evSeq,sev,msg,t:new Date()});
+  if(events.length>400)events.pop();
+}
+function toast(sev,msg){
+  const el=document.createElement("div");el.className="toast "+sev;
+  el.innerHTML=`<span class="tic"></span><span>${msg}</span>`;
+  document.getElementById("toasts").appendChild(el);
+  setTimeout(()=>{el.classList.add("out");setTimeout(()=>el.remove(),350)},4200);
+}
+
+/* ---------------- health + breaker evaluation ---------------- */
+// effective health per app per lane: 'healthy' | 'degraded' | 'critical'
+const health={1:{},2:{},3:{}};
+const TRIP_RATIO=0.4;        // enterprise breaker trips when ≥40% of its apps unhealthy in a lane
+const LANE_TRIP_ENTS=3;      // edge breaker trips when ≥3 enterprises tripped in a lane
+const halfTimers={};         // key → timeout id
+
+function computeHealth(){
+  for(const l of LANES){
+    const H=health[l];
+    for(const a of computeOrder){
+      if(state.faults.has(a.id+":"+l)){H[a.id]="critical";continue}
+      let st="healthy";
+      for(const d of a.deps){const dh=H[d];if(dh==="critical"||dh==="degraded"){st="degraded";break}}
+      H[a.id]=st;
+    }
+  }
+}
+function entLaneStats(entId,lane){
+  let h=0,d=0,c=0;
+  for(const a of apps){if(a.ent!==entId)continue;
+    const s=health[lane][a.id];
+    if(s==="critical")c++;else if(s==="degraded")d++;else h++;
+  }
+  return{h,d,c,total:h+d+c};
+}
+function scheduleHalfOpen(key,obj,label,scopeMsg){
+  if(halfTimers[key])return;
+  obj.st="half";
+  logEvent("info",`<b>${label}</b> entered <b>PROBING</b> — sending canary traffic to ${scopeMsg} to verify recovery`);
+  halfTimers[key]=setTimeout(()=>{
+    delete halfTimers[key];
+    if(obj.st==="half"){obj.st="closed";logEvent("ok",`<b>${label}</b> probe succeeded — breaker <b>SERVING</b>, full traffic restored`);toast("ok",`${label} serving — traffic restored`)}
+    evaluate();render();
+  },3800);
+}
+function evaluate(){
+  computeHealth();
+  // enterprise breakers
+  for(const e of ENTS)for(const l of LANES){
+    const k=e.id+":"+l, b=state.ent[k];
+    if(b.st==="open")continue;            // operator intent wins
+    const s=entLaneStats(e.id,l);
+    const bad=(s.c+s.d)/s.total;
+    if(bad>=TRIP_RATIO){
+      if(b.st!=="tripped"){
+        if(halfTimers[k]){clearTimeout(halfTimers[k]);delete halfTimers[k]}
+      b.st="tripped";
+        logEvent("crit",`Enterprise breaker <b>${e.name} · Lane ${l}</b> <b>TRIPPED</b> — ${s.c} critical, ${s.d} degraded of ${s.total} applications; pool members disabled under the lane's wide service records`);
+        toast("crit",`${e.name} breaker tripped on Lane ${l} (auto)`);
+      }
+    }else if(b.st==="tripped"&&s.c===0&&s.d===0){
+      scheduleHalfOpen(k,b,`${e.name} · Lane ${l}`,`${e.name} reachability on Lane ${l}`);
+    }else if(b.st==="half"&&(s.c>0||s.d>0)){
+      if(halfTimers[k]){clearTimeout(halfTimers[k]);delete halfTimers[k]}
+      b.st="tripped";
+      logEvent("warn",`<b>${e.name} · Lane ${l}</b> probe failed — breaker re-<b>TRIPPED</b>`);
+    }
+  }
+  // edge breakers
+  for(const l of LANES){
+    const b=state.edge[l], k="edge:"+l;
+    if(b.st==="open")continue;
+    const tripped=ENTS.filter(e=>state.ent[e.id+":"+l].st==="tripped").length;
+    if(tripped>=LANE_TRIP_ENTS){
+      if(b.st!=="tripped"){
+        if(halfTimers[k]){clearTimeout(halfTimers[k]);delete halfTimers[k]}
+        b.st="tripped";
+        logEvent("crit",`Edge circuit breaker <b>Lane ${l}</b> <b>TRIPPED</b> — ${tripped} enterprise breakers isolated in lane; lane removed from global steering`);
+        toast("crit",`Lane ${l} edge breaker tripped (auto)`);
+      }
+    }else if(b.st==="tripped"&&tripped===0){
+      scheduleHalfOpen(k,b,`Edge breaker · Lane ${l}`,`Lane ${l} end-to-end path`);
+    }else if(b.st==="half"&&tripped>0){
+      if(halfTimers[k]){clearTimeout(halfTimers[k]);delete halfTimers[k]}
+      b.st="tripped";
+      logEvent("warn",`<b>Edge breaker · Lane ${l}</b> probe failed — re-<b>TRIPPED</b>`);
+    }
+  }
+}
+
+/* traffic weights per lane */
+function laneWeights(){
+  const w={};
+  for(const l of LANES){
+    const b=state.edge[l].st;
+    if(b==="open"||b==="tripped"){w[l]=0;continue}
+    let healthy=0;
+    for(const a of apps)if(health[l][a.id]==="healthy")healthy++;
+    let f=healthy/apps.length;
+    if(b==="half")f*=0.1;     // canary share while probing
+    w[l]=f;
+  }
+  const sum=w[1]+w[2]+w[3]||1;
+  for(const l of LANES)w[l]=w[l]/sum;
+  return w;
+}
+
+/* ---------------- actions ---------------- */
+function toggleEdge(l){
+  const b=state.edge[l];
+  if(b.st==="closed"){
+    b.st="open";
+    logEvent("warn",`Operator intent: <b>Lane ${l}</b> breaker <b>ISOLATED</b> — lane intentionally removed from steering; all pool members disabled under the lane's wide service records`);
+    toast("warn",`Lane ${l} isolated by operator`);
+  }else if(b.st==="open"){
+    b.st="closed";
+    logEvent("ok",`Operator intent: <b>Lane ${l}</b> breaker <b>SERVING</b> — lane returned to global steering`);
+    toast("ok",`Lane ${l} returned to serving`);
+  }else if(b.st==="tripped"){
+    toast("info",`Lane ${l} is auto-tripped — clear the underlying faults to allow recovery, or use Reset to force a probe`);
+    return;
+  }
+  evaluate();render();
+}
+function resetEdge(l){
+  const b=state.edge[l];if(b.st!=="tripped")return;
+  scheduleHalfOpen("edge:"+l,b,`Edge breaker · Lane ${l}`,`Lane ${l} end-to-end path`);
+  evaluate();render();
+}
+function toggleEnt(entId,l){
+  const b=state.ent[entId+":"+l];const e=ENTS.find(x=>x.id===entId);
+  if(b.st==="closed"){
+    b.st="open";
+    logEvent("warn",`Operator intent: enterprise breaker <b>${e.name} · Lane ${l}</b> <b>ISOLATED</b> — ${e.name} isolated from Lane ${l}`);
+    toast("warn",`${e.name} isolated from Lane ${l}`);
+  }else if(b.st==="open"){
+    b.st="closed";
+    logEvent("ok",`Operator intent: enterprise breaker <b>${e.name} · Lane ${l}</b> <b>SERVING</b>`);
+  }else{
+    toast("info",`${e.name} · Lane ${l} is auto-tripped — clear faults to allow recovery`);
+    return;
+  }
+  evaluate();render();
+}
+function injectFault(appId,lane,why){
+  const k=appId+":"+lane;
+  if(state.faults.has(k))return;
+  state.faults.add(k);
+  const a=appById[appId];
+  logEvent("crit",`Health monitor: <b>${a.name}</b> failing on <b>Lane ${lane}</b>${why?` — ${why}`:""}; downstream dependents marked degraded`);
+  evaluate();render();
+}
+function clearFault(appId,lane){
+  const k=appId+":"+lane;
+  if(!state.faults.delete(k))return;
+  logEvent("ok",`Fault cleared on <b>${appById[appId].name}</b> · Lane ${lane}`);
+  evaluate();render();
+}
+function randomFault(){
+  // bias toward core/data so the cascade is visible
+  const pool=apps.filter(a=>a.tier==="core"||a.tier==="data"||rnd()<0.25);
+  const a=pool[Math.floor(Math.random()*pool.length)];
+  const lane=LANES[Math.floor(Math.random()*3)];
+  injectFault(a.id,lane,"synthetic fault injected (simulation)");
+  toast("crit",`Fault injected: ${a.name} on Lane ${lane}`);
+}
+function cascadeScenario(){
+  // break shared-platform core + data on one lane → wide cross-enterprise cascade
+  const lane=LANES[Math.floor(Math.random()*3)];
+  const targets=[...helixCore.slice(0,2),helixData[0]];
+  logEvent("warn",`Simulation: shared-platform failure scenario started on <b>Lane ${lane}</b> — breaking ${targets.length} Helix platform services that many enterprises depend on`);
+  let i=0;
+  const step=()=>{
+    if(i<targets.length){injectFault(targets[i].id,lane,"shared-dependency cascade scenario");i++;setTimeout(step,650)}
+  };
+  step();
+  toast("warn",`Cascade scenario running on Lane ${lane} — watch the breakers trip`);
+}
+function clearAll(){
+  if(state.faults.size===0){toast("info","No active faults");return}
+  state.faults.clear();
+  logEvent("ok","Simulation: <b>all faults cleared</b> — tripped breakers will probe and restore to serving");
+  toast("ok","All faults cleared — recovery probes starting");
+  evaluate();render();
+}
+
+/* ---------------- rendering ---------------- */
+const $=s=>document.querySelector(s);
+const STATE_LABEL={closed:"SERVING",open:"ISOLATED",tripped:"TRIPPED",half:"PROBING"};
+const H_COLORS={healthy:"var(--green)",degraded:"var(--amber)",critical:"var(--red)",isolated:"#aab1c2"};
+let curView="dashboard", topoLane=1, selectedApp=null, appFilter={q:"",ent:"",tier:"",status:""};
+
+function donut(el,segs,centerNum,centerCap){
+  const R=66,C=2*Math.PI*R,total=segs.reduce((s,x)=>s+x.v,0)||1;
+  let off=0,circ="";
+  for(const s of segs){
+    const len=s.v/total*C;
+    if(s.v>0)circ+=`<circle cx="74" cy="74" r="${R}" stroke="${s.c}" stroke-dasharray="${len-1.5} ${C-len+1.5}" stroke-dashoffset="${-off}"/>`;
+    off+=len;
+  }
+  if(!circ)circ=`<circle cx="74" cy="74" r="${R}" stroke="#e8ebf3" stroke-dasharray="${C} 0"/>`;
+  el.innerHTML=`<svg width="148" height="148">${circ}</svg>
+    <div class="donut-center"><div><div class="donut-num">${centerNum}</div><div class="donut-cap">${centerCap}</div></div></div>`;
+}
+function legendRows(el,rows){
+  el.innerHTML=rows.map(r=>`<div class="legend-row">
+    <span class="dot" style="background:${r.c}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+    ${r.k}<span class="val">${r.v}</span></div>`).join("");
+}
+
+function renderSummary(){
+  // lanes
+  const laneStates=LANES.map(l=>state.edge[l].st);
+  const serving=laneStates.filter(s=>s==="closed").length;
+  const probing=laneStates.filter(s=>s==="half").length;
+  const isolated=laneStates.filter(s=>s==="open").length;
+  const tripped=laneStates.filter(s=>s==="tripped").length;
+  donut($("#donutLanes"),[
+    {v:serving,c:"var(--green)"},{v:probing,c:"var(--blue)"},
+    {v:isolated,c:"var(--amber)"},{v:tripped,c:"var(--red)"}
+  ],serving,"of 3 lanes serving");
+  legendRows($("#legendLanes"),[
+    {k:"Serving",c:"var(--green)",v:serving},
+    {k:"Probing (canary)",c:"var(--blue)",v:probing},
+    {k:"Isolated (operator)",c:"var(--amber)",v:isolated},
+    {k:"Auto-tripped",c:"var(--red)",v:tripped},
+  ]);
+  // breakers (3 edge + 24 enterprise)
+  const all=[...LANES.map(l=>state.edge[l].st),...ENTS.flatMap(e=>LANES.map(l=>state.ent[e.id+":"+l].st))];
+  const cnt=s=>all.filter(x=>x===s).length;
+  donut($("#donutBreakers"),[
+    {v:cnt("closed"),c:"var(--green)"},{v:cnt("half"),c:"var(--blue)"},
+    {v:cnt("open"),c:"var(--amber)"},{v:cnt("tripped"),c:"var(--red)"}
+  ],cnt("closed"),`of ${all.length} serving`);
+  legendRows($("#legendBreakers"),[
+    {k:"Serving",c:"var(--green)",v:cnt("closed")},
+    {k:"Probing (canary)",c:"var(--blue)",v:cnt("half")},
+    {k:"Isolated (operator)",c:"var(--amber)",v:cnt("open")},
+    {k:"Tripped (auto)",c:"var(--red)",v:cnt("tripped")},
+  ]);
+  // app instances
+  let h=0,d=0,c=0;
+  for(const l of LANES)for(const a of apps){
+    const s=health[l][a.id];if(s==="critical")c++;else if(s==="degraded")d++;else h++;
+  }
+  donut($("#donutApps"),[
+    {v:h,c:"var(--green)"},{v:d,c:"var(--amber)"},{v:c,c:"var(--red)"}
+  ],h,`of ${apps.length*3} healthy`);
+  legendRows($("#legendApps"),[
+    {k:"Healthy",c:"var(--green)",v:h},
+    {k:"Degraded (dependency)",c:"var(--amber)",v:d},
+    {k:"Critical (faulted)",c:"var(--red)",v:c},
+  ]);
+  // config card
+  $("#cfgApps").textContent=apps.length;
+  $("#cfgList").innerHTML=[
+    ["Traffic lanes","3"],
+    ["Enterprises",ENTS.length],
+    ["Dependency edges",DEP_COUNT],
+    ["Edge circuit breakers","3"],
+    ["Enterprise circuit breakers",ENTS.length*3],
+    ["Active faults",`<span style="color:${state.faults.size?"var(--red)":"var(--ink)"}">${state.faults.size}</span>`],
+  ].map(([k,v])=>`<div class="kv">${k}<b>${v}</b></div>`).join("");
+}
+
+function renderLaneCards(){
+  const w=laneWeights();
+  $("#laneCards").innerHTML=LANES.map(l=>{
+    const b=state.edge[l];
+    let h=0,bad=0;
+    for(const a of apps){const s=health[l][a.id];if(s==="healthy")h++;else bad++}
+    const flowCls=b.st==="closed"?"":b.st==="half"?"probe":"stopped";
+    const rps=Math.round(state.baseRps[l]*w[l]*(0.97+0.06*Math.random()));
+    const blockedTxt=b.st==="open"?"LANE ISOLATED — OPERATOR INTENT":b.st==="tripped"?"LANE TRIPPED — NO TRAFFIC ADMITTED":"";
+    return `<div class="lane-card state-${b.st}">
+      <div class="lane-head">
+        <button class="breaker ${b.st}" data-edge="${l}" title="Toggle edge circuit breaker" aria-label="Lane ${l} edge breaker, ${STATE_LABEL[b.st]}"><span class="knob"></span></button>
+        <div><div class="lane-name">Lane ${l}</div><div class="lane-sub">Edge circuit breaker · global steering tier</div></div>
+        <span class="state-pill ${b.st}">${STATE_LABEL[b.st]}</span>
+      </div>
+      <div class="flow-viz ${flowCls}"><div class="stream"></div></div>
+      <div class="flow-status"><span class="flow-msg">${blockedTxt}</span></div>
+      <div class="lane-metrics">
+        <div class="lm"><div class="v">${(w[l]*100).toFixed(0)}%</div><div class="k">Traffic share</div></div>
+        <div class="lm"><div class="v">${rps.toLocaleString()}</div><div class="k">Requests/sec</div></div>
+        <div class="lm"><div class="v">${h}</div><div class="k">Healthy apps</div></div>
+        <div class="lm"><div class="v" style="color:${bad?"var(--red)":"var(--ink)"}">${bad}</div><div class="k">Unhealthy</div></div>
+      </div>
+      <div class="lane-foot">
+        <span class="hint">${b.st==="closed"?"Flip the breaker to isolate this lane (operator intent)":b.st==="open"?"Flip again to return this lane to serving":b.st==="half"?"Probing with canary traffic — will restore if healthy":"Auto-tripped by health policy"}</span>
+        <button class="reset ${b.st==="tripped"?"show":""}" data-reset="${l}">Reset → probe</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderDist(){
+  const w=laneWeights();
+  const colors={1:"#3d5bf5",2:"#6c5ce7",3:"#0ea5b7"};
+  const total=Math.round(LANES.reduce((s,l)=>s+state.baseRps[l]*w[l],0));
+  $("#distTotal").textContent=`Aggregate ${total.toLocaleString()} req/s`;
+  $("#distBar").innerHTML=LANES.map(l=>{
+    const p=w[l]*100;
+    return `<div class="dist-seg" style="width:${p}%;background:${colors[l]}">${p>=9?`Lane ${l} · ${p.toFixed(0)}%`:""}</div>`;
+  }).join("");
+  $("#distLegend").innerHTML=LANES.map(l=>`<span><span class="sw" style="background:${colors[l]}"></span>Lane ${l} — ${(w[l]*100).toFixed(1)}% of admitted traffic</span>`).join("");
+}
+
+function renderMatrix(){
+  const head=`<tr><th>Enterprise</th><th style="width:110px">Apps</th>${LANES.map(l=>`<th class="lane-col">Lane ${l}</th>`).join("")}</tr>`;
+  const rows=ENTS.map(e=>{
+    const cells=LANES.map(l=>{
+      const b=state.ent[e.id+":"+l];const s=entLaneStats(e.id,l);
+      const bars=`<span class="health-mini" title="${s.h} healthy · ${s.d} degraded · ${s.c} critical">`+
+        `<i class="${s.h?"h":""}"></i><i class="${s.d?"d":(s.h===s.total?"h":"")}"></i><i class="${s.c?"c":(s.d===0&&s.h===s.total?"h":"")}"></i></span>`;
+      return `<td class="lane-col"><span class="mx-cell">
+        <button class="breaker sm ${b.st}" data-ent="${e.id}" data-lane="${l}" title="${e.name} · Lane ${l}: ${STATE_LABEL[b.st]}" aria-label="${e.name} Lane ${l} breaker"><span class="knob"></span></button>
+        <span class="mx-state ${b.st}">${STATE_LABEL[b.st]}</span>${bars}</span></td>`;
+    }).join("");
+    const total=apps.filter(a=>a.ent===e.id).length;
+    return `<tr><td><span class="ent-cell"><span class="ent-dot" style="background:${e.color}"></span>${e.name}
+      <span class="ent-sub">${e.sub}</span></span></td><td>${total} apps</td>${cells}</tr>`;
+  }).join("");
+  $("#entMatrix").innerHTML=head+rows;
+}
+
+function evHtml(e){
+  const icons={
+    crit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M13 2L4.5 13.5h6L10 22l8.5-11.5h-6L13 2z"/></svg>',
+    warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+    ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M12 12v4"/></svg>'
+  };
+  const t=e.t.toTimeString().slice(0,8);
+  return `<div class="ev sev-${e.sev}"><span class="ico">${icons[e.sev]}</span><span class="msg">${e.msg}</span><span class="when">${t}</span></div>`;
+}
+function renderEvents(){
+  const prev=$("#eventsPreview"), full=$("#eventsFull");
+  if(events.length===0){
+    prev.innerHTML=`<div class="empty-note">No events yet. Use the simulation controls above, or flip a breaker, to generate activity.</div>`;
+    full.innerHTML=prev.innerHTML;
+  }else{
+    prev.innerHTML=events.slice(0,8).map(evHtml).join("");
+    full.innerHTML=events.map(evHtml).join("");
+  }
+  $("#evMeta").textContent=`${events.length} events · most recent first`;
+  $("#navEvCount").textContent=events.length||"";
+}
+
+/* ---------- topology ---------- */
+const NODE_W=118,NODE_H=20,COL_GAP=212,ROW_GAP=27.5;
+const layout={};let topoW=0,topoH=0;
+(function buildLayout(){
+  const cols={};TIERS.forEach((t,i)=>cols[t]=[]);
+  // order within column: by enterprise (keeps groups visually together)
+  for(const e of ENTS)for(const t of TIERS)for(const a of byEntTier[e.id+"/"+t])cols[t].push(a);
+  const maxRows=Math.max(...TIERS.map(t=>cols[t].length));
+  topoH=maxRows*ROW_GAP+90;topoW=TIERS.length*COL_GAP+80;
+  TIERS.forEach((t,ci)=>{
+    const list=cols[t];
+    const startY=(topoH-list.length*ROW_GAP)/2+20;
+    list.forEach((a,ri)=>{layout[a.id]={x:60+ci*COL_GAP,y:startY+ri*ROW_GAP}});
+  });
+})();
+let view={x:0,y:0,k:1},topoBuilt=false;
+const edgeEls={},nodeEls={};
+function buildTopo(){
+  if(topoBuilt)return;topoBuilt=true;
+  const vp=$("#topoViewport");
+  const svgNS="http://www.w3.org/2000/svg";
+  const svg=document.createElementNS(svgNS,"svg");
+  svg.setAttribute("viewBox",`0 0 ${topoW} ${topoH}`);
+  const g=document.createElementNS(svgNS,"g");g.id="topoG";svg.appendChild(g);
+  // tier labels
+  TIERS.forEach((t,ci)=>{
+    const tx=document.createElementNS(svgNS,"text");
+    tx.setAttribute("x",60+ci*COL_GAP+NODE_W/2);tx.setAttribute("y",16);
+    tx.setAttribute("text-anchor","middle");tx.setAttribute("class","tier-label");
+    tx.textContent=TIER_LABEL[t];g.appendChild(tx);
+  });
+  // edges
+  const eg=document.createElementNS(svgNS,"g");g.appendChild(eg);
+  for(const a of apps)for(const d of a.deps){
+    const p1=layout[a.id],p2=layout[d];
+    const x1=p1.x+NODE_W,y1=p1.y+NODE_H/2,x2=p2.x,y2=p2.y+NODE_H/2;
+    const mx=(x1+x2)/2;
+    const path=document.createElementNS(svgNS,"path");
+    path.setAttribute("d",`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+    path.setAttribute("class","tedge");
+    eg.appendChild(path);
+    edgeEls[a.id+">"+d]=path;
+  }
+  // nodes
+  for(const a of apps){
+    const p=layout[a.id];
+    const ng=document.createElementNS(svgNS,"g");
+    ng.setAttribute("class","tnode");ng.setAttribute("transform",`translate(${p.x},${p.y})`);
+    ng.dataset.app=a.id;
+    const rect=document.createElementNS(svgNS,"rect");
+    rect.setAttribute("width",NODE_W);rect.setAttribute("height",NODE_H);rect.setAttribute("rx",5);
+    const ent=ENTS.find(x=>x.id===a.ent);
+    const eb=document.createElementNS(svgNS,"rect");
+    eb.setAttribute("x",0);eb.setAttribute("y",0);eb.setAttribute("width",3);eb.setAttribute("height",NODE_H);
+    eb.setAttribute("rx",1.5);eb.setAttribute("fill",ent.color);
+    const dot=document.createElementNS(svgNS,"circle");
+    dot.setAttribute("cx",12);dot.setAttribute("cy",NODE_H/2);dot.setAttribute("r",3.6);
+    const tx=document.createElementNS(svgNS,"text");
+    tx.setAttribute("x",20);tx.setAttribute("y",NODE_H/2+3);
+    tx.textContent=a.name.length>17?a.name.slice(0,16)+"…":a.name;
+    ng.append(rect,eb,dot,tx);g.appendChild(ng);
+    nodeEls[a.id]=ng;
+    ng.addEventListener("mouseenter",()=>highlight(a.id));
+    ng.addEventListener("mouseleave",()=>highlight(null));
+    ng.addEventListener("click",ev=>{ev.stopPropagation();selectApp(a.id)});
+  }
+  vp.appendChild(svg);
+  // pan / zoom
+  let drag=null;
+  vp.addEventListener("mousedown",e=>{drag={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}});
+  window.addEventListener("mousemove",e=>{if(!drag)return;view.x=drag.vx+(e.clientX-drag.x);view.y=drag.vy+(e.clientY-drag.y);applyView()});
+  window.addEventListener("mouseup",()=>drag=null);
+  vp.addEventListener("wheel",e=>{
+    e.preventDefault();
+    const k0=view.k;view.k=Math.min(3.2,Math.max(.45,view.k*(e.deltaY<0?1.12:0.89)));
+    const r=vp.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+    view.x=px-(px-view.x)*(view.k/k0);view.y=py-(py-view.y)*(view.k/k0);
+    applyView();
+  },{passive:false});
+  vp.addEventListener("click",()=>selectApp(null));
+  applyView();
+  // lane segmented control
+  $("#laneSeg").innerHTML=LANES.map(l=>`<button data-tl="${l}" class="${l===topoLane?"on":""}">Lane ${l}</button>`).join("");
+}
+function applyView(){
+  const g=document.getElementById("topoG");
+  if(g)g.setAttribute("transform",`translate(${view.x},${view.y}) scale(${view.k})`);
+}
+/* cross-lane severity: counts how many lanes have a direct fault on this app
+   0 faults = use per-lane health as-is
+   1 fault   = warn   (amber  — one lane directly failing)
+   2 faults  = serious (orange — two lanes directly failing)
+   3 faults  = critical (red   — all lanes directly failing)               */
+function crossLaneStatus(appId){
+  const faultedLanes=LANES.filter(l=>state.faults.has(appId+":"+l)).length;
+  if(faultedLanes===0)return null;   // no direct fault — fall back to dependency health
+  if(faultedLanes===1)return "warn";
+  if(faultedLanes===2)return "serious";
+  return "critical";
+}
+function effStatus(appId,lane){
+  // critical (root cause) always wins; otherwise isolated when the app's
+  // enterprise breaker or the lane edge breaker is not serving
+  const a=appById[appId];
+  const h=health[lane][appId];
+  if(h==="critical")return "critical";
+  const eb=state.edge[lane].st, nb=state.ent[a.ent+":"+lane].st;
+  if(eb==="open"||eb==="tripped"||nb==="open"||nb==="tripped")return "isolated";
+  return h;
+}
+function renderTopo(){
+  if(curView!=="topology")return;
+  buildTopo();
+  for(const a of apps){
+    const ng=nodeEls[a.id];
+    // node dot colour: cross-lane fault severity takes precedence over single-lane view
+    const cls=crossLaneStatus(a.id) || effStatus(a.id,topoLane);
+    ng.setAttribute("class","tnode h-"+cls+(selectedApp===a.id?" sel":""));
+  }
+  let bad=0;for(const a of apps){const s=health[topoLane][a.id];if(s!=="healthy")bad++}
+  $("#topoStats").textContent=`${apps.length} applications · ${DEP_COUNT} dependencies · ${bad} unhealthy on Lane ${topoLane}`;
+  // edge coloring: tint by the worst cross-lane severity of the dependency target
+  for(const a of apps)for(const d of a.deps){
+    const el=edgeEls[a.id+">"+d];
+    const cs=crossLaneStatus(d);
+    const ds=health[topoLane][d];
+    const isBad=ds==="critical"||ds==="degraded";
+    el.classList.toggle("warn",   !cs && !isBad ? false : cs==="warn");
+    el.classList.toggle("serious",cs==="serious");
+    el.classList.toggle("bad",    cs==="critical" || (!cs && isBad));
+  }
+  if(hoverId)highlight(hoverId,true);
+}
+let hoverId=null;
+function chain(appId,dir){ // dir: 'deps' (downstream) | 'dependents' (upstream)
+  const seen=new Set(),q=[appId];
+  while(q.length){const id=q.pop();for(const n of appById[id][dir])if(!seen.has(n)){seen.add(n);q.push(n)}}
+  return seen;
+}
+function highlight(appId,keep){
+  hoverId=keep?hoverId:appId;
+  if(!appId){
+    for(const id in nodeEls)nodeEls[id].classList.remove("dim");
+    for(const k in edgeEls){edgeEls[k].classList.remove("dim","lit")}
+    return;
+  }
+  const down=chain(appId,"deps"),up=chain(appId,"dependents");
+  const keepSet=new Set([appId,...down,...up]);
+  for(const id in nodeEls)nodeEls[id].classList.toggle("dim",!keepSet.has(id));
+  for(const k in edgeEls){
+    const [s,t]=k.split(">");
+    const onPath=(keepSet.has(s)&&keepSet.has(t))&&((s===appId||down.has(s)||up.has(s)));
+    edgeEls[k].classList.toggle("dim",!onPath);
+    edgeEls[k].classList.toggle("lit",onPath&&!edgeEls[k].classList.contains("bad"));
+  }
+}
+function selectApp(appId){
+  selectedApp=appId;
+  renderDetail();renderTopo();renderApps();
+}
+function renderDetail(){
+  const panel=$("#detailPanel");
+  if(!selectedApp){
+    panel.innerHTML=`<div class="detail-empty">Select an application node to inspect its dependencies, per-lane health, and fault controls.</div>`;
+    return;
+  }
+  const a=appById[selectedApp];const ent=ENTS.find(e=>e.id===a.ent);
+  const laneRows=LANES.map(l=>{
+    const s=effStatus(a.id,l);
+    const faulted=state.faults.has(a.id+":"+l);
+    return `<div class="lane-status-row"><b>Lane ${l}</b>
+      <span style="color:var(--muted);font-size:11px">${faulted?"fault injected":""}</span>
+      <span class="pill ${s}">${s.toUpperCase()}</span></div>`;
+  }).join("");
+  const depRow=id=>{
+    const d=appById[id];const s=crossLaneStatus(id) || effStatus(id,topoLane);
+    return `<button class="dep-link" data-goto="${id}"><span class="st ${s}"></span>${d.name}<span style="margin-left:auto;color:var(--faint);font-size:10px">${TIER_LABEL[d.tier]}</span></button>`;
+  };
+  const faultBtns=LANES.map(l=>{
+    const has=state.faults.has(a.id+":"+l);
+    return has
+      ?`<button class="btn" data-clearfault="${l}" style="justify-content:center">Clear fault on Lane ${l}</button>`
+      :`<button class="btn danger" data-fault="${l}" style="justify-content:center">Inject fault on Lane ${l}</button>`;
+  }).join("");
+  panel.innerHTML=`
+    <div class="detail-h">
+      <div class="nm">${a.name}</div>
+      <div class="meta"><span class="ent-dot" style="background:${ent.color};width:8px;height:8px;border-radius:2px"></span>${ent.name} · ${TIER_LABEL[a.tier]} tier · ${a.version}</div>
+    </div>
+    <div class="detail-body">
+      <div class="d-sec"><h4>STATUS PER LANE</h4>${laneRows}</div>
+      <div class="d-sec"><h4>DEPENDS ON (${a.deps.length})</h4>${a.deps.map(depRow).join("")||'<span style="font-size:12px;color:var(--muted)">No outbound dependencies</span>'}</div>
+      <div class="d-sec"><h4>DEPENDED ON BY (${a.dependents.length})</h4>${a.dependents.slice(0,12).map(depRow).join("")||'<span style="font-size:12px;color:var(--muted)">No inbound dependents</span>'}${a.dependents.length>12?`<div style="font-size:11px;color:var(--muted);padding:4px 8px">+ ${a.dependents.length-12} more</div>`:""}</div>
+      <div class="d-sec"><h4>FAULT SIMULATION</h4><div class="fault-actions">${faultBtns}</div></div>
+    </div>`;
+}
+
+/* ---------- applications table ---------- */
+function pillFor(appId,lane){
+  const s=effStatus(appId,lane);
+  return `<span class="pill ${s}">${s.toUpperCase()}</span>`;
+}
+function renderApps(){
+  if(curView!=="apps"&&document.getElementById("appsTbody").childElementCount>0&&curView!=="apps")return;
+  const q=appFilter.q.toLowerCase();
+  const rows=[];
+  let shown=0;
+  for(const a of apps){
+    if(q&&!a.name.includes(q))continue;
+    if(appFilter.ent&&a.ent!==appFilter.ent)continue;
+    if(appFilter.tier&&a.tier!==appFilter.tier)continue;
+    if(appFilter.status){
+      const st=LANES.map(l=>health[l][a.id]);
+      if(appFilter.status==="critical"&&!st.includes("critical"))continue;
+      if(appFilter.status==="degraded"&&!st.includes("degraded"))continue;
+      if(appFilter.status==="healthy"&&st.some(s=>s!=="healthy"))continue;
+    }
+    shown++;
+    const ent=ENTS.find(e=>e.id===a.ent);
+    rows.push(`<tr data-row="${a.id}" class="${selectedApp===a.id?"sel-row":""}">
+      <td><span class="app-nm">${a.name}</span></td>
+      <td><span class="ent-cell" style="font-weight:500"><span class="ent-dot" style="background:${ent.color}"></span>${ent.name}</span></td>
+      <td><span class="tier-tag">${TIER_LABEL[a.tier]}</span></td>
+      <td class="dep-ct">${a.deps.length} ↓ · ${a.dependents.length} ↑</td>
+      <td>${pillFor(a.id,1)}</td><td>${pillFor(a.id,2)}</td><td>${pillFor(a.id,3)}</td>
+    </tr>`);
+  }
+  $("#appsTbody").innerHTML=rows.join("");
+  $("#appsMeta").textContent=`${shown} of ${apps.length} applications`;
+  $("#navAppCount").textContent=apps.length;
+}
+
+/* ---------- navigation + master render ---------- */
+function setView(v){
+  curView=v;
+  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id==="view-"+v));
+  document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x.dataset.nav===v));
+  const titles={dashboard:"Resilience Dashboard",topology:"Dependency Map",apps:"Applications",events:"Events"};
+  $("#pageTitle").textContent=titles[v];$("#crumbLeaf").textContent=titles[v];
+  render();
+}
+let lastRefresh=Date.now();
+function render(){
+  const t0=performance.now();
+  renderSummary();renderLaneCards();renderDist();renderMatrix();renderEvents();
+  if(curView==="topology"){renderTopo();renderDetail()}
+  if(curView==="apps")renderApps();
+  $("#faultCount").innerHTML=state.faults.size?`<b>${state.faults.size}</b> active fault${state.faults.size>1?"s":""}`:"no active faults";
+  const ms=(performance.now()-t0).toFixed(1);
+  $("#perf").textContent=`${apps.length} apps · ${DEP_COUNT} dependency edges · 27 breakers · full re-render ${ms} ms`;
+}
+
+/* ---------- wiring ---------- */
+document.addEventListener("click",e=>{
+  const nav=e.target.closest("[data-nav]");if(nav){setView(nav.dataset.nav);return}
+  const eb=e.target.closest("[data-edge]");if(eb){toggleEdge(+eb.dataset.edge);return}
+  const rs=e.target.closest("[data-reset]");if(rs){resetEdge(+rs.dataset.reset);return}
+  const nb=e.target.closest("[data-ent]");if(nb){toggleEnt(nb.dataset.ent,+nb.dataset.lane);return}
+  const tl=e.target.closest("[data-tl]");if(tl){topoLane=+tl.dataset.tl;document.querySelectorAll("[data-tl]").forEach(b=>b.classList.toggle("on",+b.dataset.tl===topoLane));renderTopo();renderDetail();return}
+  const go=e.target.closest("[data-goto]");if(go){selectApp(go.dataset.goto);return}
+  const fi=e.target.closest("[data-fault]");if(fi&&selectedApp){injectFault(selectedApp,+fi.dataset.fault,"manually injected from detail panel");return}
+  const fc=e.target.closest("[data-clearfault]");if(fc&&selectedApp){clearFault(selectedApp,+fc.dataset.clearfault);return}
+  const row=e.target.closest("[data-row]");if(row){selectApp(row.dataset.row);setView("topology");
+    // center the node
+    const p=layout[row.dataset.row],vp=$("#topoViewport").getBoundingClientRect();
+    view.x=vp.width/2-(p.x+NODE_W/2)*view.k;view.y=vp.height/2-p.y*view.k;applyView();return}
+});
+$("#btnRandomFault").addEventListener("click",randomFault);
+$("#btnCascade").addEventListener("click",cascadeScenario);
+$("#btnClear").addEventListener("click",clearAll);
+$("#btnExport").addEventListener("click",()=>toast("info","Export is illustrative in this mock-up"));
+$("#btnRefresh").addEventListener("click",()=>{lastRefresh=Date.now();render();$("#refreshNote").textContent="Refresh: Updated just now"});
+$("#appSearch").addEventListener("input",e=>{appFilter.q=e.target.value;renderApps()});
+$("#fEnt").addEventListener("change",e=>{appFilter.ent=e.target.value;renderApps()});
+$("#fTier").addEventListener("change",e=>{appFilter.tier=e.target.value;renderApps()});
+$("#fStatus").addEventListener("change",e=>{appFilter.status=e.target.value;renderApps()});
+// populate filters
+$("#fEnt").innerHTML+=ENTS.map(e=>`<option value="${e.id}">${e.name}</option>`).join("");
+$("#fTier").innerHTML+=TIERS.map(t=>`<option value="${t}">${TIER_LABEL[t]}</option>`).join("");
+// refresh-age ticker + gentle rps jitter
+setInterval(()=>{
+  const s=Math.round((Date.now()-lastRefresh)/1000);
+  $("#refreshNote").textContent=s<5?"Refresh: Updated just now":s<60?`Refresh: Updated ${s} sec ago`:`Refresh: Updated ${Math.round(s/60)} min ago`;
+},2000);
+setInterval(()=>{if(curView==="dashboard"){renderDist();renderLaneCards()}},5000);
+
+/* ---------- boot ---------- */
+logEvent("info","Console initialised — <b>"+apps.length+" applications</b> across "+ENTS.length+" enterprises registered under lane control ("+DEP_COUNT+" dependency edges discovered)");
+logEvent("info","All edge and enterprise circuit breakers <b>SERVING</b> — three lanes active");
+evaluate();
+setView("dashboard");
+renderApps();
+</script>
+</body>
+</html>
